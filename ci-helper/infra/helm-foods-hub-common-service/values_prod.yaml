@@ -1,0 +1,31 @@
+replicas: 1
+replicasMax: 1
+cpuTargetPercentage: 50
+ingress:
+  name: foods-hub-common-service
+  # This will need to be set at deploy time as it differs from environment to environment
+  domain: "foods.apps.mnscorp.net"
+  subdomain: foods
+  envdomain: "apps.mnscorp.net"
+  cluster: fto
+  tls_certificate: foodshub
+
+  # Mark ssl as true to enable SSL on this service
+  ssl: true
+  metric: false
+  access_policy: 'public'
+  proxybodysize: 'yes'
+# Change below value if you want to deploy the application in a different namespace
+namespace: foodshub
+resources:
+  limits:
+    memory: "2Gi"
+    cpu: "1"
+  requests:
+    memory: "500Mi"
+    cpu: "250m"
+environment: prod
+newRelic:
+  profile: "production"
+  config: "prod"
+  tracing: "true"

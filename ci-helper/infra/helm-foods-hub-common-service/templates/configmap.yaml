@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "fullname" . }}
+  namespace: {{ .Values.namespace }}
+data:   
+  newrelic.yml: |-
+{{ .Files.Get (printf "configMap/newrelic_%s.yml" .Values.newRelic.config) | indent 4}}

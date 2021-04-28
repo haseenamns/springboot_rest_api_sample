@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ template "fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.MinReplicas }}
+  # We dont need a large deployment history limit as Helm keeps it's own
+  # history
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: {{ template "fullname" . }}
+  template:
+    metadata:
+      namespace: {{ .Values.namespace }}
+      labels:
+        app: {{ template "fullname" . }}
+        release: "{{ .Release.Name }}"
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 3000
+        fsGroup: 2000
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ template "fullname" . }}
+      containers:
+        - name: {{ template "fullname" . }}
+          image:  {{ template "docker-image" . }}
+          imagePullPolicy: Always
+          env:
+            # You can set environment variables that don't change across environments here
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.environment }}
+            - name: JAVA_OPTS
+              value: {{ .Values.javaOption }}
+            - name: NEWRELIC_PROFILE
+              value: {{ .Values.newRelic.profile }}
+            - name: DB_MONGO_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: foods-hub-db-secrets
+                  key: db-mongo-server
+            - name: DB_MONGO_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: foods-hub-db-secrets
+                  key: db-mongo-user-name
+            - name: DB_MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foods-hub-db-secrets
+                  key: db-mongo-password
+          volumeMounts:
+            - name: config-volume
+              mountPath: /newrelic/newrelic.yml
+              subPath: newrelic.yml
+          # For debugging if needed.
+          #        command: ["tail"]
+          #        args: ["-f", "/dev/null"]
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /common-service/actuator/health
+              port: 8080
+            initialDelaySeconds: 130
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /common-service/actuator/health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+      imagePullSecrets:
+        - name: regcred

@@ -1,0 +1,11 @@
+        steps:
+          - script: | 
+                     commitmsg=$(git log --pretty=oneline --abbrev-commit | grep -m1 "Merge pull")
+                     cmt=${commitmsg:0:6}
+                     invalidcmt=$(git log --pretty=%B HEAD...$cmt | grep -v -e "FSP" | grep -v "Merge" | grep -v '^$')
+                     echo $invalidcmt
+                     git log --pretty=%B HEAD...$cmt
+                     if [[ $invalidcmt -gt 0 ]]
+                     then
+                        echo "Invalid Commit Message is found" && exit 1
+                     fi

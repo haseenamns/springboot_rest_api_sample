@@ -1,0 +1,30 @@
+steps:
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package'
+        options: '--no-transfer-progress'
+        publishJUnitResults: true
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/**/*.xml'
+        codeCoverageToolOption: 'JaCoCo'
+        codeCoverageClassFilter: '+:com.marksandspencer.foodshub.common.controller.*,+:com.marksandspencer.foodshub.common.rest.client.*,+:com.marksandspencer.foodshub.common.service.*'
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.11'
+        mavenVersionOption: 'Default'
+        mavenOptions: '-Xmx3072m'
+        mavenAuthenticateFeed: false
+        effectivePomSkip: false
+        sonarQubeRunAnalysis: false
+        checkStyleRunAnalysis: true
+        pmdRunAnalysis: true
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Agent.BuildDirectory)/s/target/'
+        Contents: 'common-0.0.1-SNAPSHOT.jar'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        OverWrite: true
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(build.artifactstagingdirectory)'
+        ArtifactName: drop
+      continueOnError: false

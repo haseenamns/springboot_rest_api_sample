@@ -1,0 +1,10 @@
+apiVersion: v1
+name: foods-hub-common-service
+version: 1
+description: This is the One MandS Food Common Service
+home: https://github.com/DigitalInnovation/foods_hub_common_service
+sources:
+  - https://github.com/DigitalInnovation/foods_hub_common_service
+maintainers:
+  - name: Rasmivan Ilangovan
+    email: rasmivan.ilangovan@mnscorp.net

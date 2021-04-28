@@ -1,0 +1,106 @@
+steps:
+  - checkout: self
+    persistCredentials: true    
+  - task: DownloadBuildArtifacts@0
+    inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '.'
+  - script: |
+            echo 'Creating Docker Image'
+            ls drop/
+            mv drop ./ci-helper/docker
+            ls ./ci-helper/docker
+    name: RearrangeFiles
+  - bash: |
+           echo "##vso[build.updatebuildnumber]$(major).$(minor).$(patch)"
+           mkdir -p $(Pipeline.Workspace)/variables
+           echo "$(major).$(minor).$(patch)" > $(Pipeline.Workspace)/variables/version
+           version="v$(major).$(minor).$(patch)"
+           devTag=$(isDevelopment)
+           prodTag=$(isProd)
+           if [[ "$devTag" == "True" ]]
+           then
+             version=dev_$version
+           fi
+           if [[ "$prodTag" == "True" ]]
+           then
+             version=prod_$version
+           fi
+           echo "##vso[task.setvariable variable=version]$version"
+    name: SetMasterBuildName
+  
+  - task: DownloadSecureFile@1
+    name: DownloadNonProdNewRelicConfig
+    inputs:
+      secureFile: 'newrelic_nonprod.yml'
+  - task: CopyFiles@2
+    name: CopyNonProdNewRelicConfig
+    inputs:
+      SourceFolder: '$(Agent.WorkFolder)/_temp'
+      Contents: 'newrelic_nonprod.yml'
+      TargetFolder: '$(Agent.BuildDirectory)/s/ci-helper/infra/$(helmReleaseName)/configMap'
+  - task: DownloadSecureFile@1
+    name: DownloadProdNewRelicConfig
+    inputs:
+      secureFile: 'newrelic_prod.yml'
+  - task: CopyFiles@2
+    name: CopyProdNewRelicConfig
+    inputs:
+      SourceFolder: '$(Agent.WorkFolder)/_temp'
+      Contents: 'newrelic_prod.yml'
+      TargetFolder: '$(Agent.BuildDirectory)/s/ci-helper/infra/$(helmReleaseName)/configMap'
+  - bash: |
+           grep -rl 'imageversion' $(Agent.BuildDirectory)/s/ci-helper/infra/$(helmReleaseName)/values.yaml | xargs sed -i 's/imageversion/$(version)/g'   
+           grep -rl '<<ApplicationName>>' $(Agent.BuildDirectory)/s/ci-helper/infra/$(helmReleaseName)/configMap/newrelic_nonprod.yml | xargs sed -i 's/<<ApplicationName>>/$(newRelicName)/g'
+           grep -rl '<<ApplicationName>>' $(Agent.BuildDirectory)/s/ci-helper/infra/$(helmReleaseName)/configMap/newrelic_prod.yml | xargs sed -i 's/<<ApplicationName>>/$(newRelicName)/g'
+    name: SetNewRelicApplicationName
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: 'curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip'
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: 'newrelic-java.zip'
+      destinationFolder: '$(Agent.BuildDirectory)/s/ci-helper/docker'
+      cleanDestinationFolder: false
+      overwriteExistingFiles: false
+  - task: Docker@2
+    displayName: Build Docker Image
+    inputs:
+      containerRegistry: 'ACR-Foods-Hub'
+      repository: '$(repositoryName)'
+      command: 'build'
+      Dockerfile: '$(Agent.BuildDirectory)/s/ci-helper/docker/DockerFile'
+      buildContext: '$(Agent.BuildDirectory)/s/ci-helper/docker'
+      tags: '$(version)'
+      arguments: '--build-arg build_no=$(version)'
+  
+  - task: Docker@2
+    displayName: Push an image to container registry
+    inputs:
+      containerRegistry: 'ACR-Foods-Hub'
+      repository: '$(repositoryName)'
+      command: 'push'
+      tags: '$(version)'
+  
+  - bash: |
+      git status
+      git tag '$(version)'
+      git push origin '$(version)'
+    name: PushTag
+  # Publish the folder as pipeline artifact
+  - publish: $(Pipeline.Workspace)/variables
+    artifact: variables
+  
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: '$(Agent.BuildDirectory)/s/ci-helper/infra/$(helmReleaseName)'
+      Contents: '**'
+      TargetFolder: '$(build.artifactstagingdirectory)'
+      OverWrite: true
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(build.artifactstagingdirectory)'
+      ArtifactName: chart
