@@ -14,9 +14,10 @@ stages:
   jobs:
   - job: Job1
     steps:
-    - script: echo Hi Job 1
+    - script: echo $(TestVariable)
       displayName: Job 1
 - stage: DevDeploy
+  dependsOn: Build
   jobs:
   - job: Job2
     steps:
@@ -25,11 +26,21 @@ stages:
         echo Hi Job 2 - line 2
       displayName: Job 2
 - stage: QADeploy
+  dependsOn: Build
   jobs:
   - job: Job3
     steps:
     - script: echo Hello Job3
     displayName: Job 3
+- stage: ProdDeploy
+  dependsOn:
+  - DevDeploy
+  - QADeploy
+  jobs:
+  - job: Job4
+    steps:
+    - script: echo Hello Job4
+    displayName: Job 4
   
 
     
