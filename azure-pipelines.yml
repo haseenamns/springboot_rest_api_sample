@@ -17,3 +17,6 @@ steps:
     echo Add other tasks to build, test, and deploy your project.
     echo See https://aka.ms/yaml
   displayName: 'Job 2'
+
+- script: echo Job 3 
+  displayName: Job 3
